@@ -1,0 +1,3 @@
+# TerraMind V0.2
+Run `python -m http.server 8000` in this folder and open http://localhost:8000. Internet access to jsDelivr and WebGL are required. Three.js 0.170.0 pinned CDN. Tests: `node test.mjs` and `node test-protocol.mjs`.
+V0.2 adds interactive Three.js terrain, instanced vegetation and fire, approximate transparent water mesh, constrained Chinese command parsing, atomic actions and snapshot undo. Shift-click terrain to edit. No LLM integration; parser only accepts documented formats. Browser rendering not tested; visual fidelity and performance not measured. Model retains V0.1 simplified closed boundaries. Undo restores all simulation state at last intervention, including elapsed time.
