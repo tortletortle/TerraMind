@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import {SceneDocument} from "./scene.mjs";
+const s=new SceneDocument();
+const a=s.create({type:"box",name:"castle",position:[1,2,3],material:"stone"});
+assert.equal(a.id,"entity-1");
+assert.equal(s.update(a.id,{position:[4,2,3]}).position[0],4);
+assert.throws(()=>s.create({type:"dragon"}));
+assert.throws(()=>s.update(a.id,{scale:[0,1,1]}));
+assert.throws(()=>s.update("missing",{name:"x"}));
+const restored=SceneDocument.restore(s.snapshot());
+assert.deepEqual(restored.get(a.id),s.get(a.id));
+restored.remove(a.id);assert.equal(restored.entities.length,0);
+console.log("PASS: scene entity CRUD, validation and snapshot restore");
