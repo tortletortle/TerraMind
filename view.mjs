@@ -103,7 +103,7 @@ function applyPlan(plan){
   if(firstCreatedId&&documentModel.get(firstCreatedId))selectedId=firstCreatedId;
   else{
     const updated=[...plan.operations].reverse().find(op=>op.op==="update");
-    selectedId=updated?.id??(documentModel.get(selectedId)?selectedId:null);
+    selectedId=documentModel.get(selectedId)?selectedId:(updated?.id??null);
   }
   rebuildView();persist();setStatus("完成："+plan.summary);
 }
