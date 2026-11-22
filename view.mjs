@@ -49,7 +49,7 @@ function persist(){try{localStorage.setItem("terramind-scene-v1",documentModel.s
 function materialFor(entity){
   const options={color:entity.color,roughness:.72,metalness:0};
   if(entity.material==="metal"){options.roughness=.28;options.metalness=.72;}
-  if(entity.material==="glass"){options.roughness:.12;options.transparent=true;options.opacity:.58;}
+  if(entity.material==="glass"){options.roughness=.12;options.transparent=true;options.opacity=.58;}
   return new THREE.MeshStandardMaterial(options);
 }
 function geometryFor(type){
