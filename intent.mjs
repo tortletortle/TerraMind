@@ -23,8 +23,10 @@ const findTarget=(text,document,selectedId)=>{
   return selectedId&&document.get(selectedId)?selectedId:undefined;
 };
 const findTargets=(text,document,selectedId)=>{
-  if(text.includes("城堡")&&!/主楼|塔楼|塔尖|大门/.test(text)){
-    const group=document.entities.filter(entity=>entity.name.includes("城堡"));
+  const explicit=document.entities.find(entity=>text.includes(entity.name));
+  if(explicit)return [explicit.id];
+  if(text.includes("城堡")){
+    const group=document.entities.filter(entity=>entity.groupName==="城堡");
     if(group.length)return group.map(entity=>entity.id);
   }
   const id=findTarget(text,document,selectedId);
@@ -32,7 +34,7 @@ const findTargets=(text,document,selectedId)=>{
 };
 const entity=(type,name,color,position,scale=[1,1,1])=>({type,name,material:"custom",color,position,scale});
 
-function castleEntities(color){
+function castleEntities(color,groupId){
   const towers=[[-1.45,1.05,-1.1],[1.45,1.05,-1.1],[-1.45,1.05,1.1],[1.45,1.05,1.1]];
   const entities=[entity("box","城堡主楼",color,[0,1.1,0],[2.4,2.2,2])];
   towers.forEach((position,index)=>{
@@ -40,7 +42,7 @@ function castleEntities(color){
     entities.push(entity("cone","城堡塔尖"+(index+1),color,[position[0],2.45,position[2]],[.62,.7,.62]));
   });
   entities.push(entity("box","城堡大门","#493b35",[0,.45,1.06],[.55,.9,.08]));
-  return entities;
+  return entities.map(item=>({...item,groupId,groupName:"城堡"}));
 }
 
 export function parseIntent(input,document,selectedId=null){
@@ -50,7 +52,7 @@ export function parseIntent(input,document,selectedId=null){
   const createVerb=/创建|生成|添加|放置|建造|放一|摆放/.test(text);
 
   if(createVerb && text.includes("城堡")){
-    return {summary:"创建一座由基础几何体组成的城堡",operations:castleEntities(color).map(item=>({op:"create",entity:item}))};
+    return {summary:"创建一座由基础几何体组成的城堡",operations:castleEntities(color,"group-castle-"+document.nextId).map(item=>({op:"create",entity:item}))};
   }
   const shape=SHAPES.find(item=>item.keys.some(key=>text.includes(key)));
   if(createVerb && shape){
