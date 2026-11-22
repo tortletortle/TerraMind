@@ -25,16 +25,14 @@ const findTarget=(text,document,selectedId)=>{
 const entity=(type,name,color,position,scale=[1,1,1])=>({type,name,material:"custom",color,position,scale});
 
 function castleEntities(color){
-  return [
-    entity("box","城堡主楼",color,[0,1.1,0],[2.4,2.2,2]),
-    entity("cylinder","城堡左塔",color,[-1.45,1.05,-.85],[.48,1.05,.48]),
-    entity("cylinder","城堡右塔",color,[1.45,1.05,-.85],[.48,1.05,.48]),
-    entity("cylinder","城堡后塔",color,[0,1.05,1.05],[.48,1.05,.48]),
-    entity("cone","左塔尖顶",color,[-1.45,2.15,-.85],[.62,.7,.62]),
-    entity("cone","右塔尖顶",color,[1.45,2.15,-.85],[.62,.7,.62]),
-    entity("cone","后塔尖顶",color,[0,2.15,1.05],[.62,.7,.62]),
-    entity("box","城堡大门", "#493b35",[0,.45,1.01],[.55,.9,.08])
-  ];
+  const towers=[[-1.45,1.05,-1.1],[1.45,1.05,-1.1],[-1.45,1.05,1.1],[1.45,1.05,1.1]];
+  const entities=[entity("box","城堡主楼",color,[0,1.1,0],[2.4,2.2,2])];
+  towers.forEach((position,index)=>{
+    entities.push(entity("cylinder","城堡塔楼"+(index+1),color,position,[.48,2.1,.48]));
+    entities.push(entity("cone","城堡塔尖"+(index+1),color,[position[0],2.45,position[2]],[.62,.7,.62]));
+  });
+  entities.push(entity("box","城堡大门","#493b35",[0,.45,1.06],[.55,.9,.08]));
+  return entities;
 }
 
 export function parseIntent(input,document,selectedId=null){
