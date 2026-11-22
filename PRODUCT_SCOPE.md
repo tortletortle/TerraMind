@@ -13,7 +13,7 @@ TerraMind is a natural-language-driven 3D scene authoring tool. Users describe a
 
 ## First usable release
 - One editable 3D scene.
-- Create, select, transform, rename and delete primitive objects.
+- Create, select, transform, rename and delete primitive objects and simple composite groups.
 - A small explicit material and color vocabulary.
 - Natural-language commands mapped to a validated operation schema.
 - Preview, validation, undo/redo and scene serialization.
@@ -36,7 +36,7 @@ TerraMind is a natural-language-driven 3D scene authoring tool. Users describe a
 - Three.js renders editable primitive entities from `SceneDocument`.
 - Users can select entities and manipulate translation, rotation and scale.
 - The property panel edits name, color and position.
-- Chinese local commands create primitives and a castle preset, recolor, move, scale and delete entities.
+- Chinese local commands create primitives and a castle preset, edit a specific castle part or the whole castle group, recolor, move, scale and delete entities.
 - Operations are validated and applied atomically.
 - Undo/redo, browser local persistence, JSON export and JSON import are available.
 
