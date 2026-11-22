@@ -8,14 +8,17 @@ const validColor = value => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.tes
 
 export class SceneDocument {
   constructor(){ this.version=1; this.nextId=1; this.entities=[]; }
-  create({type="box",name,position=[0,0.5,0],rotation=[0,0,0],scale=[1,1,1],material="stone",color}={}) {
+  create({type="box",name,position=[0,0.5,0],rotation=[0,0,0],scale=[1,1,1],material="stone",color,groupId,groupName}={}) {
     if(!TYPES.has(type)) throw Error("不支持的物体类型");
     if(!MATERIALS.has(material)) throw Error("不支持的材质");
     if(!validVector(position)||!validVector(rotation)||!validVector(scale)) throw Error("位置、旋转和缩放必须是三个有限数字");
     if(scale.some(v=>v<=0||v>100)) throw Error("缩放范围必须大于 0 且不超过 100");
     color = color ?? DEFAULT_COLORS[material];
     if(!validColor(color)) throw Error("颜色必须是 #RRGGBB 格式");
-    const entity={id:"entity-"+this.nextId++,type,name:String(name||type).slice(0,80),position:[...position],rotation:[...rotation],scale:[...scale],material,color};
+    if(groupId!==undefined && (typeof groupId!=="string" || !/^group-[a-zA-Z0-9-]{1,72}$/.test(groupId))) throw Error("物体组 ID 无效");
+    if(groupName!==undefined && (typeof groupName!=="string" || !groupName.trim() || groupName.length>80)) throw Error("物体组名称无效");
+    if((groupId===undefined)!==(groupName===undefined)) throw Error("物体组 ID 和名称必须同时提供");
+    const entity={id:"entity-"+this.nextId++,type,name:String(name||type).slice(0,80),position:[...position],rotation:[...rotation],scale:[...scale],material,color,...(groupId?{groupId,groupName}:{})};
     this.entities.push(entity);
     return clone(entity);
   }
