@@ -96,11 +96,11 @@ function refreshInspector(){
 }
 function applyPlan(plan){
   const before=documentModel.snapshot();
+  const firstCreatedId=plan.operations.some(op=>op.op==="create")?"entity-"+documentModel.nextId:null;
   const next=applyOperations(documentModel,plan.operations);
   if(next.snapshot()===before){setStatus("没有产生场景变化");return;}
   pushUndo(before);documentModel=next;
-  const lastCreated=[...plan.operations].reverse().find(op=>op.op==="create");
-  if(lastCreated)selectedId=documentModel.entities.at(-1)?.id;
+  if(firstCreatedId&&documentModel.get(firstCreatedId))selectedId=firstCreatedId;
   else{
     const updated=[...plan.operations].reverse().find(op=>op.op==="update");
     selectedId=updated?.id??(documentModel.get(selectedId)?selectedId:null);
