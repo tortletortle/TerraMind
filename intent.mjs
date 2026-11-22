@@ -11,7 +11,7 @@ const SHAPES=[
   {keys:["圆柱体","圆柱"],type:"cylinder",label:"圆柱体"},
   {keys:["圆锥体","圆锥"],type:"cone",label:"圆锥体"}
 ];
-const pickColor=text=>Object.keys(COLORS).find(name=>text.includes(name));
+const pickColor=text=>Object.keys(COLORS).map(name=>({name,index:text.lastIndexOf(name)})).filter(item=>item.index>=0).sort((a,b)=>b.index-a.index)[0]?.name;
 const findTarget=(text,document,selectedId)=>{
   if(/选中|当前物体/.test(text)&&selectedId&&document.get(selectedId)) return selectedId;
   if(/最后一个|最后创建|刚才的物体/.test(text)) return document.entities.at(-1)?.id;
