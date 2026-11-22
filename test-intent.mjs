@@ -23,6 +23,7 @@ assert.equal(doc.entities.length,0);
 result=executeIntent("在桌面上放一座蓝色城堡",doc);
 doc=result.document;
 assert.equal(doc.entities.length,10);
+assert.ok(doc.entities.every(e=>e.groupId==="group-castle-1"&&e.groupName==="城堡"));
 assert.ok(doc.entities.every(e=>e.color==="#5b91d1" || e.name==="城堡大门"));
 result=executeIntent("把城堡主楼改成白色",doc);doc=result.document;
 assert.equal(doc.entities.find(e=>e.name==="城堡主楼").color,"#e8e9e4");
