@@ -22,6 +22,14 @@ const findTarget=(text,document,selectedId)=>{
   if(text.includes("城堡")) return document.entities.find(entity=>entity.name.includes("城堡"))?.id;
   return selectedId&&document.get(selectedId)?selectedId:undefined;
 };
+const findTargets=(text,document,selectedId)=>{
+  if(text.includes("城堡")){
+    const group=document.entities.filter(entity=>entity.name.includes("城堡"));
+    if(group.length)return group.map(entity=>entity.id);
+  }
+  const id=findTarget(text,document,selectedId);
+  return id?[id]:[];
+};
 const entity=(type,name,color,position,scale=[1,1,1])=>({type,name,material:"custom",color,position,scale});
 
 function castleEntities(color){
@@ -50,31 +58,31 @@ export function parseIntent(input,document,selectedId=null){
     return {summary:"创建"+name,operations:[{op:"create",entity:entity(shape.type,name,color,[0,.5,0])}]};
   }
 
-  const targetId=findTarget(text,document,selectedId);
+  const targetIds=findTargets(text,document,selectedId);
   if(/删除|移除/.test(text)){
-    if(!targetId) throw Error("没有找到要删除的物体；请先选中物体或指定名称");
-    return {summary:"删除物体",operations:[{op:"delete",id:targetId}]};
+    if(!targetIds.length) throw Error("没有找到要删除的物体；请先选中物体或指定名称");
+    return {summary:"删除物体",operations:targetIds.map(id=>({op:"delete",id}))};
   }
   if(/改成|变成|换成|涂成|颜色/.test(text) && colorName){
-    if(!targetId) throw Error("没有找到要修改的物体；请先选中物体或指定名称");
-    return {summary:"将物体颜色改为"+colorName,operations:[{op:"update",id:targetId,patch:{color}}]};
+    if(!targetIds.length) throw Error("没有找到要修改的物体；请先选中物体或指定名称");
+    return {summary:"将物体颜色改为"+colorName,operations:targetIds.map(id=>({op:"update",id,patch:{color}}))};
   }
   if(/放大|缩小/.test(text)){
-    if(!targetId) throw Error("没有找到要缩放的物体");
-    const current=document.get(targetId),factor=/放大一倍|扩大一倍/.test(text)?2:/缩小一半|缩小一倍/.test(text)?.5:1.2;
-    return {summary:factor>1?"放大物体":"缩小物体",operations:[{op:"update",id:targetId,patch:{scale:current.scale.map(v=>v*factor)}}]};
+    if(!targetIds.length) throw Error("没有找到要缩放的物体");
+    const factor=/放大一倍|扩大一倍/.test(text)?2:/缩小一半|缩小一倍/.test(text)?.5:1.2;
+    return {summary:factor>1?"放大物体":"缩小物体",operations:targetIds.map(id=>{const current=document.get(id);return {op:"update",id,patch:{scale:current.scale.map(v=>v*factor)}};})};
   }
   if(/移动|挪到|移到|放到/.test(text)){
-    if(!targetId) throw Error("没有找到要移动的物体");
-    const current=document.get(targetId),position=[...current.position];
-    if(/左边|左侧/.test(text)) position[0]-=2;
-    else if(/右边|右侧/.test(text)) position[0]+=2;
-    else if(/上方|上面/.test(text)) position[1]+=1;
-    else if(/下方|下面/.test(text)) position[1]=Math.max(.1,position[1]-1);
-    else if(/前面|前方/.test(text)) position[2]+=2;
-    else if(/后面|后方/.test(text)) position[2]-=2;
+    if(!targetIds.length) throw Error("没有找到要移动的物体");
+    const delta=[0,0,0];
+    if(/左边|左侧/.test(text)) delta[0]=-2;
+    else if(/右边|右侧/.test(text)) delta[0]=2;
+    else if(/上方|上面/.test(text)) delta[1]=1;
+    else if(/下方|下面/.test(text)) delta[1]=-1;
+    else if(/前面|前方/.test(text)) delta[2]=2;
+    else if(/后面|后方/.test(text)) delta[2]=-2;
     else throw Error("目前支持左、右、上、下、前、后六个方向");
-    return {summary:"移动物体",operations:[{op:"update",id:targetId,patch:{position}}]};
+    return {summary:"移动物体",operations:targetIds.map(id=>{const current=document.get(id);return {op:"update",id,patch:{position:current.position.map((v,i)=>v+delta[i])}};})};
   }
   throw Error("暂不支持这条指令。试试：创建红色立方体、创建一座蓝色城堡、把最后一个物体改成白色、把最后一个物体移动到左边、删除最后一个物体。");
 }
