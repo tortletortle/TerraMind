@@ -8,7 +8,7 @@ doc=result.document;
 assert.equal(doc.entities.length,1);
 assert.equal(doc.entities[0].color,"#d65c55");
 const id=doc.entities[0].id;
-result=executeIntent("把最后一个物体改成白色",doc);
+result=executeIntent("把红色立方体改成白色",doc);
 doc=result.document;
 assert.equal(doc.get(id).color,"#e8e9e4");
 result=executeIntent("把最后一个物体移动到左边",doc);
