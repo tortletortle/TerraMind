@@ -23,7 +23,7 @@ const findTarget=(text,document,selectedId)=>{
   return selectedId&&document.get(selectedId)?selectedId:undefined;
 };
 const findTargets=(text,document,selectedId)=>{
-  if(text.includes("城堡")){
+  if(text.includes("城堡")&&!/主楼|塔楼|塔尖|大门/.test(text)){
     const group=document.entities.filter(entity=>entity.name.includes("城堡"));
     if(group.length)return group.map(entity=>entity.id);
   }
@@ -70,7 +70,8 @@ export function parseIntent(input,document,selectedId=null){
   if(/放大|缩小/.test(text)){
     if(!targetIds.length) throw Error("没有找到要缩放的物体");
     const factor=/放大一倍|扩大一倍/.test(text)?2:/缩小一半|缩小一倍/.test(text)?.5:1.2;
-    return {summary:factor>1?"放大物体":"缩小物体",operations:targetIds.map(id=>{const current=document.get(id);return {op:"update",id,patch:{scale:current.scale.map(v=>v*factor)}};})};
+    const groupCenter=targetIds.length>1?targetIds.map(id=>document.get(id).position).reduce((sum,pos)=>sum.map((v,i)=>v+pos[i]),[0,0,0]).map(v=>v/targetIds.length):null;
+    return {summary:factor>1?"放大物体":"缩小物体",operations:targetIds.map(id=>{const current=document.get(id),patch={scale:current.scale.map(v=>v*factor)};if(groupCenter)patch.position=current.position.map((v,i)=>groupCenter[i]+(v-groupCenter[i])*factor);return {op:"update",id,patch};})};
   }
   if(/移动|挪到|移到|放到/.test(text)){
     if(!targetIds.length) throw Error("没有找到要移动的物体");
