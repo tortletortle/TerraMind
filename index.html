@@ -1,1 +1,87 @@
-<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TerraMind 0.2</title><style>*{box-sizing:border-box}body{margin:0;background:#101d20;color:#dbeae3;font:15px system-ui}header{padding:18px 24px;border-bottom:1px solid #344a48;letter-spacing:2px}main{display:grid;grid-template-columns:1fr 290px;height:calc(100dvh - 65px)}#view{position:relative;min-height:300px}aside{padding:20px;background:#192a2c;overflow:auto}input,button,select{background:#273e3d;border:1px solid #536c62;color:white;padding:10px;border-radius:7px;margin:4px 0}input{width:100%}button{cursor:pointer}small,pre{color:#a9c5b6}#log{white-space:pre-wrap}@media(max-width:700px){main{display:block;height:auto}#view{height:55vh}}</style><header>TERRAMIND · 虚实共生 <small>V0.2 / 世界实验室</small></header><main><div id="view"></div><aside><h3>生态监测</h3><pre id="stats"></pre><h3>世界指令</h3><input id="cmd" placeholder="点燃中央"><button id="run">执行指令</button><p><small>点燃中央 / 植树 12,20 / 降雨 0.01</small></p><div id="log"></div><h3>直接干预</h3><select id="tool"><option value="ignite">点燃</option><option value="plant">植树</option><option value="water">注水</option></select><p><small>Shift + 点击地形执行；拖动旋转，滚轮缩放</small></p><button id="pause">暂停 / 继续</button> <button id="undo">撤销至干预前</button> <button id="reset">重置</button><p><small>简化生态模型 · 本地规则解析（未接入 LLM）</small></p></aside></main><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script><script type="module" src="./view.mjs"></script></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TerraMind · AI 三维创作工作台</title>
+<style>
+:root{color-scheme:dark;--bg:#0d171b;--panel:#152329;--line:#2b4148;--text:#e5efeb;--muted:#94aaa5;--accent:#7dc9a4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,"Microsoft YaHei",sans-serif}
+header{height:58px;padding:0 22px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:#101d22;letter-spacing:.08em}
+.brand{font-weight:750}.brand span{color:var(--accent)}.version{font-size:11px;color:var(--muted);letter-spacing:.12em}
+main{height:calc(100dvh - 58px);min-height:580px;display:grid;grid-template-columns:minmax(0,1fr) 330px}
+#viewport{position:relative;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 45%,#233c40,#111e23 70%)}
+#viewport canvas{display:block;width:100%;height:100%}.view-label{position:absolute;left:18px;top:16px;color:#a9c2bb;font-size:11px;letter-spacing:.12em;pointer-events:none}
+aside{background:var(--panel);border-left:1px solid var(--line);padding:17px;overflow:auto}
+h3{font-size:12px;letter-spacing:.12em;color:#b5c9c1;margin:8px 0 10px;text-transform:uppercase}
+.section{padding-bottom:16px;margin-bottom:15px;border-bottom:1px solid var(--line)}
+input,button,select{font:inherit;color:var(--text);background:#203239;border:1px solid #385159;border-radius:7px;padding:9px}
+button{cursor:pointer;transition:.15s}button:hover{border-color:var(--accent);background:#29433f}button:disabled{opacity:.35;cursor:not-allowed}
+textarea{width:100%;min-height:76px;resize:vertical;background:#0e1a1f;color:var(--text);border:1px solid #385159;border-radius:8px;padding:11px;font:inherit;outline:none}
+textarea:focus,input:focus{border-color:var(--accent);outline:none}
+.primary{background:#276448;border-color:#39865f;width:100%;font-weight:650;margin-top:8px}
+.row{display:flex;gap:7px;flex-wrap:wrap}.row button{flex:1}
+.hint{font-size:11px;color:var(--muted);margin:8px 0 0}
+#status{font-size:12px;min-height:20px;color:var(--accent);margin-top:8px}
+#entityList{display:grid;gap:5px;max-height:150px;overflow:auto}
+.entity-item{text-align:left;width:100%;background:#1b2d33;border-color:transparent;font-size:12px}
+.entity-item.active{border-color:var(--accent);background:#254139}
+label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px}
+.field{width:100%}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+input[type=color]{height:38px;width:100%;padding:3px}
+input[type=number]{width:100%;min-width:0}
+.toolbar button{font-size:12px}
+#inspector.empty{color:var(--muted);font-size:12px}
+footer{font-size:10px;color:#829892;margin-top:10px}
+@media(max-width:820px){main{grid-template-columns:minmax(0,1fr) 290px}}
+@media(max-width:650px){main{height:auto;min-height:0;display:flex;flex-direction:column}#viewport{height:52vh;min-height:340px}aside{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header><div class="brand">TERRA<span>MIND</span> <span style="color:#91aaa2">/ 虚实共生</span></div><div class="version">AI SCENE STUDIO · V0.3</div></header>
+<main>
+<section id="viewport"><div class="view-label">3D VIEWPORT · DRAG TO ORBIT · CLICK TO SELECT</div></section>
+<aside>
+<div class="section">
+<h3>自然语言创作</h3>
+<textarea id="command" placeholder="例如：在桌面上放一座红色城堡"></textarea>
+<button class="primary" id="execute">执行场景指令</button>
+<div class="hint">本版使用可验证的本地指令解析器，尚未接入大模型。</div>
+<div id="status">等待创作指令</div>
+</div>
+<div class="section">
+<h3>快速创建</h3>
+<div class="row"><button data-create="创建红色立方体">立方体</button><button data-create="创建蓝色球体">球体</button></div>
+<div class="row"><button data-create="创建绿色圆柱体">圆柱体</button><button data-create="创建一座红色城堡">城堡</button></div>
+</div>
+<div class="section">
+<h3>场景物体 <span id="entityCount" style="color:var(--muted)">0</span></h3>
+<div id="entityList"></div>
+</div>
+<div class="section">
+<h3>物体属性</h3>
+<div id="inspector" class="empty">选择一个物体以编辑属性。</div>
+<div id="propertyForm" hidden>
+<label>名称</label><input id="propName" class="field">
+<label>颜色</label><input id="propColor" type="color">
+<label>位置 X / Y / Z</label><div class="grid3"><input id="posX" type="number" step=".1"><input id="posY" type="number" step=".1"><input id="posZ" type="number" step=".1"></div>
+<button id="applyProperties" class="primary">应用属性</button>
+<button id="deleteSelected" style="width:100%;margin-top:6px">删除选中物体</button>
+</div>
+</div>
+<div class="section">
+<h3>变换工具</h3>
+<div class="row toolbar"><button data-mode="translate">移动</button><button data-mode="rotate">旋转</button><button data-mode="scale">缩放</button></div>
+<p class="hint">选中物体后，可使用视口中的三维操纵器直接编辑。</p>
+</div>
+<div class="section">
+<h3>编辑历史</h3>
+<div class="row"><button id="undo">撤销</button><button id="redo">重做</button></div>
+<div class="row" style="margin-top:7px"><button id="save">保存场景</button><button id="load">打开场景</button></div>
+<input id="fileInput" type="file" accept="application/json,.json" hidden>
+</div>
+<footer>场景数据由 SceneDocument 管理。AI 指令只能生成受约束的场景操作，不执行任意代码。</footer>
+</aside>
+</main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module" src="./view.mjs"></script>
+</body></html>
