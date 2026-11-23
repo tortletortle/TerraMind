@@ -13,9 +13,11 @@ const fetchImpl=async (url,options)=>{
   return new Response(JSON.stringify({choices:[{finish_reason:"tool_calls",message:{content:"已生成修改方案。",tool_calls:[{type:"function",function:{name:"propose_scene_operations",arguments:JSON.stringify(proposal)}}]}}],usage:{total_tokens:42}}),{status:200,headers:{"content-type":"application/json"}});
 };
 const messages=buildMessages({command:"把它改成蓝色",document,selectedId:cube.id,context:{targetIds:[cube.id,"entity-404"]},history:[{role:"user",content:"创建一个方块"},{role:"assistant",content:"已创建"}]});
+assert.equal(messages.length,2,"prior turns must be data, not additional instruction-role messages");
 assert.equal(messages[0].role,"system");
 assert.equal(messages.at(-1).role,"user");
 const userPayload=JSON.parse(messages.at(-1).content);
+assert.deepEqual(userPayload.recent_messages,[{speaker:"user",content:"创建一个方块"},{speaker:"assistant",content:"已创建"}]);
 assert.deepEqual(userPayload.conversation_context.target_ids,[cube.id]);
 assert.equal(userPayload.scene_entities.length,1);
 assert.deepEqual(userPayload.scene_entities[0].bounds,{min:[0.5,0,1.5],max:[1.5,1,2.5]});
