@@ -70,9 +70,9 @@ function conservativeWorldBounds(entity) {
   const [x,y,z]=entity.rotation??[0,0,0];
   const a=Math.cos(x),b=Math.sin(x),c=Math.cos(y),d=Math.sin(y),e=Math.cos(z),f=Math.sin(z);
   const rotation=[
-    [e*c,e*d*b-f*a,e*d*a+f*b],
-    [f*c,f*d*b+e*a,f*d*a-e*b],
-    [-d,c*b,c*a]
+    [c*e,-c*f,d],
+    [a*f+b*e*d,a*e-b*f*d,-b*c],
+    [b*f-a*e*d,b*e+a*f*d,a*c]
   ];
   const localHalf=entity.scale.map(value=>value/2);
   const worldHalf=rotation.map(row=>row.reduce((sum,coefficient,axis)=>sum+Math.abs(coefficient)*localHalf[axis],0));
