@@ -22,7 +22,7 @@ textarea:focus,input:focus{border-color:var(--accent);outline:none}
 .row{display:flex;gap:7px;flex-wrap:wrap}.row button{flex:1}
 .hint{font-size:11px;color:var(--muted);margin:8px 0 0}
 #status{font-size:12px;min-height:20px;color:var(--accent);margin-top:8px}
-.plan-preview{margin-top:10px;padding:11px;border:1px solid #526b60;border-radius:8px;background:#182d2b}.plan-preview strong{color:#a9e2bd}.plan-preview ol{padding-left:20px;margin:8px 0;font-size:11px;color:#c4d4ce;max-height:150px;overflow:auto}.plan-preview li{margin:5px 0}.plan-actions{display:flex;gap:7px}.plan-actions button{flex:1;font-size:12px}.plan-actions #confirmPlan{background:#276448;border-color:#39865f}
+.model-status{font-size:11px;color:#8fb5a6;margin-top:6px}.plan-heading{display:grid;gap:5px}.plan-heading span{font-size:10px;color:#9dbab0;letter-spacing:.08em;text-transform:uppercase}.plan-preview{margin-top:10px;padding:11px;border:1px solid #526b60;border-radius:8px;background:#182d2b}.plan-preview strong{color:#a9e2bd}.plan-preview ol{padding-left:20px;margin:8px 0;font-size:11px;color:#c4d4ce;max-height:150px;overflow:auto}.plan-preview li{margin:5px 0}.plan-actions{display:flex;gap:7px}.plan-actions button{flex:1;font-size:12px}.plan-actions #confirmPlan{background:#276448;border-color:#39865f}
 #entityList{display:grid;gap:5px;max-height:150px;overflow:auto}
 .entity-item{text-align:left;width:100%;background:#1b2d33;border-color:transparent;font-size:12px}
 .entity-item.active{border-color:var(--accent);background:#254139}
@@ -38,7 +38,7 @@ footer{font-size:10px;color:#829892;margin-top:10px}
 </style>
 </head>
 <body>
-<header><div class="brand">TERRA<span>MIND</span> <span style="color:#91aaa2">/ 虚实共生</span></div><div class="version">AI SCENE STUDIO · V0.4</div></header>
+<header><div class="brand">TERRA<span>MIND</span> <span style="color:#91aaa2">/ 虚实共生</span></div><div class="version">AI SCENE STUDIO · V0.5</div></header>
 <main>
 <section id="viewport"><div class="view-label">3D VIEWPORT · DRAG TO ORBIT · CLICK TO SELECT</div></section>
 <aside>
@@ -46,9 +46,9 @@ footer{font-size:10px;color:#829892;margin-top:10px}
 <h3>自然语言创作</h3>
 <textarea id="command" placeholder="例如：在城堡旁边建一座桥；再高一点"></textarea>
 <button class="primary" id="execute">生成修改预览</button>
-<div class="hint">先生成操作预览，确认后才修改场景。当前使用本地语义规划器，模型 API 尚未连接。</div>
+<div class="hint">AI 根据当前场景与对话上下文提出结构化操作；确认后才修改场景。AI 不可用时可回退到有限的本地规则。</div><div class="model-status" id="modelStatus">正在检查 AI 网关…</div>
 <div id="status">等待创作指令</div>
-<div id="planPreview" class="plan-preview" hidden><strong id="planSummary"></strong><ol id="planChanges"></ol><div class="plan-actions"><button id="confirmPlan">确认应用</button><button id="cancelPlan">取消</button></div></div>
+<div id="planPreview" class="plan-preview" hidden><div class="plan-heading"><span id="planMode">AI 模型提案</span><strong id="planSummary"></strong></div><ol id="planChanges"></ol><div class="plan-actions"><button id="confirmPlan">确认应用</button><button id="cancelPlan">取消</button></div></div>
 </div>
 <div class="section">
 <h3>快速创建</h3>
@@ -81,7 +81,7 @@ footer{font-size:10px;color:#829892;margin-top:10px}
 <div class="row" style="margin-top:7px"><button id="save">保存场景</button><button id="load">打开场景</button></div>
 <input id="fileInput" type="file" accept="application/json,.json" hidden>
 </div>
-<footer>场景数据由 SceneDocument 管理。自然语言只生成受约束的操作提案；执行前必须确认。</footer>
+<footer>AI 密钥仅保存在服务端环境变量。模型不能直接执行代码或修改场景；每项变更均需用户确认。</footer>
 </aside>
 </main>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
