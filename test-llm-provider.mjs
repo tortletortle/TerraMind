@@ -73,4 +73,12 @@ assert.throws(()=>readProviderConfig({TERRAMIND_API_URL:"http://example.com/v1/c
 assert.equal(readProviderConfig({TERRAMIND_API_MODE:"responses"}).apiUrl,"https://api.openai.com/v1/responses");
 assert.throws(()=>readProviderConfig({TERRAMIND_API_MODE:"unknown"}),/仅支持/);
 assert.throws(()=>buildMessages({command:"",document}),/不能为空/);
+const createEntityOperation=(name,groupId,groupName)=>({op:"create",id:null,patch:null,entity:{type:"box",name,position:[0,.5,0],rotation:[0,0,0],scale:[1,1,1],material:"stone",color:"#aeb8b2",groupId,groupName}});
+const existingGroupScene=new SceneDocument();
+existingGroupScene.create({type:"box",name:"城堡主楼",groupId:"group-existing",groupName:"城堡"});
+assert.throws(()=>validateProposal({summary:"错误并组",operations:[createEntityOperation("桥墩","group-existing","石桥")]},existingGroupScene),/名称不匹配/);
+assert.throws(()=>validateProposal({summary:"组名称冲突",operations:[createEntityOperation("桥面","group-new","石桥"),createEntityOperation("桥墩","group-new","城堡")]},new SceneDocument()),/多个组名称/);
+const fullScene=new SceneDocument();
+for(let index=0;index<300;index++)fullScene.create({type:"box",name:"实体"+index,position:[index,.5,0]});
+assert.throws(()=>validateProposal({summary:"超过场景上限",operations:[createEntityOperation("额外物体",undefined,undefined)]},fullScene),/300 个物体/);
 console.log("PASS: provider request shape, prompt context, strict tool mapping, proposal validation, auth/error redaction and config safety");
