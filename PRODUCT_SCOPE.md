@@ -62,6 +62,7 @@ TerraMind is a natural-language-driven 3D scene authoring tool. Users describe a
 - The provider adapter supports OpenAI-compatible Chat Completions and Responses formats.
 - Model input includes the structured scene, rotation-aware conservative world bounds for entities/groups, selected object, bounded conversation context and up to eight recent messages.
 - Model output is restricted to one propose_scene_operations call or a text clarification; multiple calls and unknown tool names are rejected.
+- The proposal validator checks composite-group identity consistency and enforces the 300-entity limit after applying the proposed batch to a clone.
 - Provider credentials remain in server environment variables.
 - The server applies request-size, scene-size, timeout, rate-limit, same-origin and static-file allowlist controls.
 - The browser falls back to the local rule planner when the gateway or provider is not configured.
