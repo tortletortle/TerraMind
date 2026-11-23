@@ -1,0 +1,35 @@
+name: TerraMind Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax checks
+        run: |
+          node --check view.mjs
+          node --check assistant.mjs
+          node --check semantic-index.mjs
+          node --check llm-contract.mjs
+      - name: Run regression and feature tests
+        run: |
+          node test.mjs
+          node test-protocol.mjs
+          node test-scene.mjs
+          node test-intent.mjs
+          node test-assistant.mjs
