@@ -86,10 +86,12 @@ export function createConversationContext(){return {targetIds:[],anchorIds:[],la
 export function preparePlan(input,document,context=createConversationContext(),selectedId=null){
   const text=String(input??"").trim();if(!text)throw new Error("请输入场景指令");
   const index=new SceneSemanticIndex(document),colorName=Object.keys(COLORS).map(name=>({name,index:text.lastIndexOf(name)})).filter(item=>item.index>=0).sort((a,b)=>b.index-a.index)[0]?.name,color=colorName?COLORS[colorName]:"#9b6842";
-  const createVerb=/创建|生成|添加|放置|建造|搭建|建|放一|摆放/.test(text);
+  const createVerb=/创建|生成|添加|放置|建造|搭建|建(?:桥|一座|一条)|放一|摆放/.test(text);
 
   if(createVerb&&/桥/.test(text)){
-    const anchor=index.resolveAnchor(text);
+    const anchorMatch=text.match(/(?:在|靠近)(.+?)(?:旁边|附近)/);
+    const anchorQuery=anchorMatch?anchorMatch[1]:text.replace(/(?:建造|搭建|创建|生成|添加|放置|建(?:桥|一座|一条)|放一|摆放).*/,"");
+    const anchor=index.resolveAnchor(anchorQuery);
     const anchorIds=requireTargets(anchor,"定位参照物");
     const anchorEntities=anchorIds.map(id=>document.get(id)).filter(Boolean);
     const groupId="group-bridge-"+document.nextId;
