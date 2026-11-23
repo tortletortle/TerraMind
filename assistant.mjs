@@ -199,5 +199,24 @@ export function validateToolProposal(proposal,document){
     }
     throw new Error("模型提案包含不支持的操作");
   });
+  const existingGroups=new Map();
+  for(const entity of document.entities){
+    if(!entity.groupId)continue;
+    const known=existingGroups.get(entity.groupId);
+    if(known!==undefined&&known!==entity.groupName)throw new Error("场景中存在名称不一致的物体组，拒绝继续规划");
+    existingGroups.set(entity.groupId,entity.groupName);
+  }
+  const proposedGroups=new Map();
+  for(const operation of operations){
+    if(operation.op!=="create"||!operation.entity.groupId)continue;
+    const {groupId,groupName}=operation.entity;
+    const existingName=existingGroups.get(groupId);
+    if(existingName!==undefined&&existingName!==groupName)throw new Error("模型试图将新物体并入名称不匹配的现有物体组");
+    const proposedName=proposedGroups.get(groupId);
+    if(proposedName!==undefined&&proposedName!==groupName)throw new Error("模型提案中同一物体组 ID 对应多个组名称");
+    proposedGroups.set(groupId,groupName);
+  }
+  const after=applyOperations(document,operations);
+  if(after.entities.length>300)throw new Error("模型提案会使场景超过 300 个物体的上限");
   return makePlan(document,operations,{summary:proposal.summary,targetIds:operations.filter(operation=>operation.op==="update").map(operation=>operation.id)});
 }
