@@ -48,7 +48,15 @@ export class SceneSemanticIndex {
     const named = this.document.entities
       .filter(entity => normalize(entity.name).length > 1 && query.includes(normalize(entity.name)))
       .sort((a,b)=>normalize(b.name).length-normalize(a.name).length);
-    if (named.length) return {ids:[named[0].id],ambiguous:false,reason:"explicit-name"};
+    if (named.length) {
+      const bestLength=normalize(named[0].name).length;
+      const best=named.filter(entity=>normalize(entity.name).length===bestLength);
+      if(best.length>1){
+        if(selectedId&&best.some(entity=>entity.id===selectedId))return {ids:[selectedId],ambiguous:false,reason:"selected-duplicate-name"};
+        return {ids:[],ambiguous:true,candidates:best.map(entity=>entity.name),reason:"ambiguous-name"};
+      }
+      return {ids:[best[0].id],ambiguous:false,reason:"explicit-name"};
+    }
 
     const group = this.groupByName(query);
     if (group.ambiguous) return {...group,reason:"ambiguous-group"};
