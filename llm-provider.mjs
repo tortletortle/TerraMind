@@ -247,3 +247,39 @@ export async function requestScenePlan({
   } finally {
     clearTimeout(timer);
   }
+
+  let data;
+  try { data = JSON.parse(rawBody); }
+  catch (cause) {
+    throw new ProviderError("模型服务返回了非 JSON 响应。", {code: "provider_invalid_response", status: 502, cause});
+  }
+  if (!response.ok) {
+    const upstreamStatus = response.status;
+    const status = upstreamStatus === 429 ? 429 : 502;
+    const code = upstreamStatus === 401 || upstreamStatus === 403 ? "provider_auth_error" :
+      upstreamStatus === 429 ? "provider_rate_limited" : "provider_http_error";
+    const message = code === "provider_auth_error" ? "模型服务认证失败，请检查 API Key。" :
+      code === "provider_rate_limited" ? "模型服务当前限流或额度不足，请稍后重试。" :
+      "模型服务请求失败（HTTP " + upstreamStatus + "）。请检查模型名称、API 地址和服务商兼容性。";
+    throw new ProviderError(message, {code, status});
+  }
+
+  const parsedCall = parseToolCall(data, config.apiMode || "chat_completions");
+  const proposal = parsedCall.proposal;
+  const validator = validateProposal ?? ((value, doc) => {
+    throw new ProviderError("未提供场景提案校验器。", {code: "validator_unavailable", status: 500});
+  });
+  let plan;
+  try { plan = validator(proposal, document); }
+  catch (cause) {
+    throw new ProviderError("模型提出的场景操作未通过安全校验：" + String(cause?.message || cause).slice(0, 300), {
+      code: "proposal_validation_failed", status: 422, cause
+    });
+  }
+  return {
+    plan,
+    reply: parsedCall.text,
+    model: config.model,
+    usage: data.usage ?? null
+  };
+}
