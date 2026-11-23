@@ -1,50 +1,62 @@
 # TerraMind
 
-**产品方向：** 自然语言驱动的实时 3D 场景创作工具。核心是创建、选择、修改和保存场景物体，不再以生态模拟器为主线。
+产品方向：自然语言驱动的实时 3D 场景创作工具。核心是创建、选择、修改和保存场景物体，不再以生态模拟器为主线。
 
-## 当前版本：V0.4 语义规划与确认工作流
+## 当前版本：V0.5 真实模型网关与安全提案
 
-- \`index.html\` / \`view.mjs\`：Three.js 场景工作台、物体选择、移动/旋转/缩放操纵器、属性面板、操作预览与确认、撤销/重做和本地保存。
-- \`scene.mjs\`：确定性场景数据模型、实体校验、快照恢复和原子化操作。
-- \`semantic-index.mjs\`：场景实体、组合组、类型别名和上下文指代解析；对多候选目标拒绝猜测。
-- \`assistant.mjs\`：生成结构化场景计划、相对位置计算、多轮上下文、预览确认、过期计划检测，以及模型提案校验。
-- \`llm-contract.mjs\`：供后端模型适配器使用的 Function Calling 工具契约。
-- \`test-assistant.mjs\`：覆盖语义解析、桥梁相对放置、多轮指代、预览确认、过期计划和模型提案边界。
-- \`engine.mjs\` / \`protocol.mjs\`：旧生态模拟实验，保留但不再由主界面加载。
+- index.html / view.mjs：Three.js 场景工作台、物体选择、移动/旋转/缩放操纵器、属性面板、AI 规划请求、操作预览与确认、撤销/重做和本地保存。
+- scene.mjs：确定性场景数据模型、实体校验、快照恢复和原子化操作。
+- semantic-index.mjs：场景实体、组合组、类型别名和上下文指代解析；对多候选目标拒绝猜测。
+- assistant.mjs：本地语义规划、相对位置计算、多轮上下文、预览确认、过期计划检测和模型提案校验。
+- llm-contract.mjs：模型 Function Calling 工具契约。
+- llm-provider.mjs：Chat Completions / Responses 双协议适配、场景上下文打包、超时、响应解析和错误处理。
+- server.mjs：本机 Node HTTP 服务、AI 规划 API、配置健康检查、同源校验、限流、静态文件白名单。
+- test-llm-provider.mjs / test-server.mjs：模拟模型响应的网关与 HTTP 安全测试。
+- engine.mjs / protocol.mjs：旧生态模拟实验，保留但不再由主界面加载。
 
-## 可验证的交互样例
+## 启动方式
+需要 Node.js 22。首次配置：
 
-1. \`创建一座红色城堡\`：创建由基础几何体组成的城堡组合。
-2. \`在城堡旁边建一座桥\`：读取城堡的场景位置，在其旁边生成桥梁组合。
-3. \`再高一点\`：在同一轮会话中继续调整上一条操作的目标。
-4. \`把桥改成蓝色\`：修改桥梁组合。
-5. \`让桥靠近城堡一点\`：根据两组物体的空间中心计算相对位移。
-6. \`把桥放到城堡旁边\`：将已有组合重新放置到参照物旁。
+~~~powershell
+Copy-Item .env.example .env
+~~~
 
-所有自然语言修改先生成操作预览；用户确认后才提交到 \`SceneDocument\`。若预览生成后场景发生变化，旧预览会被拒绝，必须重新规划。
+编辑 .env，填写模型服务商提供的 API Key 和模型标识。默认使用 OpenAI-compatible Chat Completions；如果所用模型/服务商只支持 Responses API，则设置 TERRAMIND_API_MODE=responses。具体说明见 docs/V0.5-LLM-GATEWAY.md。
 
-## 本地运行
+启动服务：
 
-在项目目录启动静态服务器：
+~~~bash
+node --env-file=.env server.mjs
+~~~
 
-\`\`\`bash
-python -m http.server 8000
-\`\`\`
+浏览器访问 http://127.0.0.1:8000。不配置 API Key 时，服务仍可启动，界面会回退到有限的本地规则规划器。
 
-打开 \`http://localhost:8000\`。Three.js 通过 jsDelivr 加载，因此需要网络连接和支持 WebGL 的浏览器。
+## 安全执行流程
+用户指令 → 场景上下文 → 模型 Function Calling → 服务端结构校验 → 场景快照验证 → 浏览器预览 → 用户确认 → commitPlan
+
+模型没有直接写入场景的权限，不能执行生成代码。场景在生成预览后发生变化时，旧计划会失效。
+
+## 当前支持的 AI 能力
+- 读取物体名称、类型、位置、旋转、缩放、材质、颜色及组合关系。
+- 结合选中物体和最近八条对话记录理解多轮指代。
+- 为创建、修改、删除基础几何体生成结构化操作提案。
+- 在 Chat Completions 和 Responses 两种 API 协议之间切换。
+- API 不可用或未配置时，回退到本地规则规划器。
+
+当前模型输入是结构化场景数据，不包含三维视口截图；因此还没有真正的视觉场景理解能力。支持的几何体仍限于 box、sphere、cylinder、cone。
 
 ## 自动化测试
-
-\`\`\`bash
+~~~bash
 node test.mjs
 node test-protocol.mjs
 node test-scene.mjs
 node test-intent.mjs
 node test-assistant.mjs
-\`\`\`
+node test-llm-provider.mjs
+node test-server.mjs
+~~~
 
-## 当前验证边界
+## 验证边界
+V0.5 新增网关与服务器测试采用 mock provider，不会消耗真实 Token。测试覆盖协议请求结构、Chat Completions / Responses 返回解析、提案验证、认证错误脱敏、同源检查、静态资源白名单和未配置模型时的行为。真实模型调用、真实 API Key/额度、真实浏览器交互、跨设备兼容性、视觉质量和性能仍需实机验收。
 
-本轮已在 Node.js 22 环境验证：旧生态模型 10 个随机种子、每个 100 步的守恒与状态边界；旧协议测试；场景数据模型测试；新语义规划、相对放置、多轮上下文、预览确认、过期预览拒绝和 Function Calling 提案校验。 \`view.mjs\` 通过语法检查。
-
-**尚未完成：** 真实浏览器交互验收、视觉质量与帧率测量、真实 LLM 服务端接入。\`llm-contract.mjs\` 目前只是工具契约，浏览器没有模型 API 调用，也没有暴露 API Key。接入边界见 [V0.4 Function Calling 说明](./docs/V0.4-LLM-FUNCTION-CALLING.md)。
+开发服务器仅允许绑定本机回环地址，不是可直接公开部署的生产服务。公开部署前必须补充用户认证、授权、HTTPS 反向代理及生产级限流。
