@@ -130,4 +130,120 @@ function parseToolCall(data, mode = "chat_completions") {
       .filter(item => item?.type === "output_text")
       .map(item => item.text || "").join("\n");
     truncated = data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens";
+  } else {
+    const choice = data?.choices?.[0];
+    const message = choice?.message;
+    calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+    text = typeof message?.content === "string" ? message.content.trim() : "";
+    truncated = choice?.finish_reason === "length";
+    if (message?.refusal) {
+      throw new ProviderError("模型拒绝了这条场景指令：" + String(message.refusal).slice(0, 240), {code: "model_refusal", status: 422});
+    }
+  }
+  if (truncated) {
+    throw new ProviderError("模型输出达到长度上限，请缩小本次修改范围。", {code: "model_output_truncated", status: 502});
+  }
+  if (calls.length !== 1) {
+    throw new ProviderError(text ? text.slice(0, 500) : "模型没有返回唯一的场景操作提案，请调整指令后重试。", {
+      code: "missing_tool_call", status: 422
+    });
+  }
+  const call = calls[0];
+  const name = mode === "responses" ? call?.name : call?.function?.name;
+  const argumentsText = mode === "responses" ? call?.arguments : call?.function?.arguments;
+  if ((mode === "responses" && call?.type !== "function_call") ||
+      (mode !== "responses" && call?.type !== "function") ||
+      name !== TERRAMIND_FUNCTION.name || typeof argumentsText !== "string") {
+    throw new ProviderError("模型返回了不支持的工具调用。", {code: "invalid_tool_call", status: 422});
+  }
+  try {
+    return {proposal: JSON.parse(argumentsText), text};
+  } catch (cause) {
+    throw new ProviderError("模型返回的操作参数不是有效 JSON。", {code: "invalid_tool_json", status: 422, cause});
+  }
+}
+
+export function readProviderConfig(env = process.env) {
+  const apiMode = env.TERRAMIND_API_MODE || "chat_completions";
+  if (!["chat_completions", "responses"].includes(apiMode)) {
+    throw new ProviderError("TERRAMIND_API_MODE 仅支持 chat_completions 或 responses。", {code: "invalid_provider_mode", status: 500});
+  }
+  const defaultUrl = apiMode === "responses" ? "https://api.openai.com/v1/responses" : "https://api.openai.com/v1/chat/completions";
+  const apiUrl = env.TERRAMIND_API_URL || defaultUrl;
+  let parsed;
+  try { parsed = new URL(apiUrl); }
+  catch { throw new ProviderError("TERRAMIND_API_URL 不是有效 URL。", {code: "invalid_provider_url", status: 500}); }
+  const localHttp = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !localHttp) {
+    throw new ProviderError("模型 API 必须使用 HTTPS；仅本机服务允许 HTTP。", {code: "unsafe_provider_url", status: 500});
+  }
+  if (parsed.username || parsed.password || parsed.hash) {
+    throw new ProviderError("模型 API URL 不得包含凭据或 URL fragment。", {code: "unsafe_provider_url", status: 500});
+  }
+  const timeoutMs = Number.parseInt(env.TERRAMIND_TIMEOUT_MS || "45000", 10);
+  return {
+    apiUrl: parsed.toString(),
+    apiMode,
+    apiKey: env.TERRAMIND_API_KEY || "",
+    model: env.TERRAMIND_MODEL || "",
+    timeoutMs: Number.isInteger(timeoutMs) && timeoutMs >= 1000 && timeoutMs <= 120000 ? timeoutMs : 45000,
+    strictTools: env.TERRAMIND_STRICT_TOOLS !== "0"
+  };
+}
+
+export async function requestScenePlan({
+  command, document, context, selectedId, history, config = readProviderConfig(),
+  fetchImpl = globalThis.fetch, validateProposal, timeoutMs = config.timeoutMs
+}) {
+  if (!config.apiKey || !config.model) {
+    throw new ProviderError("尚未配置模型服务。请在服务端设置 TERRAMIND_API_KEY 和 TERRAMIND_MODEL。", {
+      code: "provider_not_configured", status: 503
+    });
+  }
+  if (typeof fetchImpl !== "function") {
+    throw new ProviderError("当前 Node.js 环境不支持 fetch，请使用 Node.js 20 或更高版本。", {
+      code: "fetch_unavailable", status: 500
+    });
+  }
+  const messages = buildMessages({command, document, context, selectedId, history});
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response, rawBody;
+  try {
+    response = await fetchImpl(config.apiUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + config.apiKey,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify((config.apiMode || "chat_completions") === "responses" ? {
+        model: config.model,
+        input: messages,
+        tools: [toResponsesTool(TERRAMIND_FUNCTION, {strict: config.strictTools !== false})],
+        tool_choice: "auto",
+        parallel_tool_calls: false,
+        store: false
+      } : {
+        model: config.model,
+        messages,
+        tools: [toChatCompletionsTool(TERRAMIND_FUNCTION, {strict: config.strictTools !== false})],
+        tool_choice: "auto",
+        parallel_tool_calls: false,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+    rawBody = await response.text();
+    if (rawBody.length > 1_000_000) {
+      throw new ProviderError("模型服务响应超过 1 MB 限制。", {code: "provider_response_too_large", status: 502});
+    }
+  } catch (cause) {
+    if (cause instanceof ProviderError) throw cause;
+    const aborted = cause?.name === "AbortError";
+    throw new ProviderError(aborted ? "模型请求超时，请稍后重试。" : "无法连接模型服务，请检查 API 地址和网络。", {
+      code: aborted ? "provider_timeout" : "provider_network_error", status: 502, cause
+    });
+  } finally {
+    clearTimeout(timer);
   }
