@@ -30,7 +30,8 @@ assert.deepEqual(groupedPayload.scene_groups[0].bounds,{min:[-.5,0,-.5],max:[.5,
 const rotatedScene=new SceneDocument();
 rotatedScene.create({type:"box",name:"旋转长方体",position:[0,0,0],rotation:[0,0,Math.PI/2],scale:[2,1,1]});
 const rotatedPayload=JSON.parse(buildMessages({command:"查看旋转物体",document:rotatedScene}).at(-1).content);
-assert.deepEqual(rotatedPayload.scene_entities[0].bounds,{min:[-.5,-1,-.5],max:[.5,1,.5]});
+for(const [axis,value] of [-.5,-1,-.5].entries())assert.ok(Math.abs(rotatedPayload.scene_entities[0].bounds.min[axis]-value)<1e-9);
+for(const [axis,value] of [.5,1,.5].entries())assert.ok(Math.abs(rotatedPayload.scene_entities[0].bounds.max[axis]-value)<1e-9);
 const tool=toChatCompletionsTool();
 assert.equal(tool.type,"function");
 assert.equal(tool.function.name,"propose_scene_operations");
