@@ -18,7 +18,7 @@ assert.equal(messages.at(-1).role,"user");
 const userPayload=JSON.parse(messages.at(-1).content);
 assert.deepEqual(userPayload.conversation_context.target_ids,[cube.id]);
 assert.equal(userPayload.scene_entities.length,1);
-assert.deepEqual(userPayload.scene_entities[0].bounds,{min:[0,0,1.5],max:[2,1,2.5]});
+assert.deepEqual(userPayload.scene_entities[0].bounds,{min:[0.5,0,1.5],max:[1.5,1,2.5]});
 assert.deepEqual(userPayload.scene_groups,[]);
 assert.equal(userPayload.selected_entity_id,cube.id);
 const groupedScene=new SceneDocument();
