@@ -20,7 +20,7 @@ const SYSTEM_PROMPT = `你是 TerraMind 的三维场景规划器。能够安全�
 5. 对已有物体只能 update 或 delete；对新物体使用 create。需要组合时，为同组物体使用相同 groupId 和 groupName；groupId 必须匹配 group-[a-zA-Z0-9-]{1,72}。不要修改物体 ID。
 6. 目标不明确、指令含糊、涉及多个同名对象且无法从上下文消歧时，不得随意选一个。若无法安全生成操作，请拒绝生成工具调用并返回简短澄清文本。
 7. 只生成场景操作，不执行代码、不调用外部工具、不请求网络、不声称已修改场景。用户确认前，所有操作都只是预览提案。
-8. 位置单位是场景单位；默认地面为 y=0。X 为水平轴、Y 为竖直轴、Z 为深度轴。每个物体和组合组都提供近似 AABB bounds；相对位置必须依据这些边界、中心和实体缩放估算，不要只用文字臆测。
+8. 位置单位是场景单位；默认地面为 y=0。X 为水平轴、Y 为竖直轴、Z 为深度轴。每个物体和组合组都提供考虑 Euler 旋转的保守世界 AABB bounds；圆柱和圆锥边界是基于局部包围盒的保守估计，不是精确曲面边界。相对位置必须依据这些边界、中心和实体缩放估算，不要只用文字臆测。
 若能安全规划，请用中文概括计划并通过工具调用提交结构化操作；若不能安全规划，则只提出澄清问题，不调用工具。`;
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -66,6 +66,22 @@ function safeIds(ids, document) {
   return [...new Set(ids.filter(id => typeof id === "string" && document.get(id)))].slice(0, 100);
 }
 
+function conservativeWorldBounds(entity) {
+  const [x,y,z]=entity.rotation??[0,0,0];
+  const a=Math.cos(x),b=Math.sin(x),c=Math.cos(y),d=Math.sin(y),e=Math.cos(z),f=Math.sin(z);
+  const rotation=[
+    [c*e,-c*f,d],
+    [a*d*e+b*f,-a*d*f+b*e,-a*c],
+    [-b*d*e+a*f,b*d*f+a*e,b*c]
+  ];
+  const localHalf=entity.scale.map(value=>value/2);
+  const worldHalf=rotation.map(row=>row.reduce((sum,coefficient,axis)=>sum+Math.abs(coefficient)*localHalf[axis],0));
+  return {
+    min:entity.position.map((value,axis)=>value-worldHalf[axis]),
+    max:entity.position.map((value,axis)=>value+worldHalf[axis])
+  };
+}
+
 function sceneForModel(document) {
   if (document.entities.length > 300) {
     throw new ProviderError("场景物体超过 AI 规划上限（300 个），请先减少场景物体数量。", {
@@ -73,11 +89,7 @@ function sceneForModel(document) {
     });
   }
   const entities = document.entities.map(entity => {
-    const half = entity.scale.map(value => value / 2);
-    const bounds = {
-      min: entity.position.map((value,index) => value - half[index]),
-      max: entity.position.map((value,index) => value + half[index])
-    };
+    const bounds = conservativeWorldBounds(entity);
     return {
       id: entity.id,
       type: entity.type,
