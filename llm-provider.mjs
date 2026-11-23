@@ -20,7 +20,7 @@ const SYSTEM_PROMPT = `你是 TerraMind 的三维场景规划器。能够安全�
 5. 对已有物体只能 update 或 delete；对新物体使用 create。需要组合时，为同组物体使用相同 groupId 和 groupName；groupId 必须匹配 group-[a-zA-Z0-9-]{1,72}。不要修改物体 ID。
 6. 目标不明确、指令含糊、涉及多个同名对象且无法从上下文消歧时，不得随意选一个。若无法安全生成操作，请拒绝生成工具调用并返回简短澄清文本。
 7. 只生成场景操作，不执行代码、不调用外部工具、不请求网络、不声称已修改场景。用户确认前，所有操作都只是预览提案。
-8. 位置单位是场景单位；默认地面为 y=0。相对位置必须根据当前场景实体的位置和缩放估算，不要只用文字臆测。
+8. 位置单位是场景单位；默认地面为 y=0。X 为水平轴、Y 为竖直轴、Z 为深度轴。每个物体和组合组都提供近似 AABB bounds；相对位置必须依据这些边界、中心和实体缩放估算，不要只用文字臆测。
 若能安全规划，请用中文概括计划并通过工具调用提交结构化操作；若不能安全规划，则只提出澄清问题，不调用工具。`;
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -72,17 +72,44 @@ function sceneForModel(document) {
       code: "scene_too_large", status: 413
     });
   }
-  return document.entities.map(entity => ({
-    id: entity.id,
-    type: entity.type,
-    name: entity.name,
-    position: entity.position,
-    rotation: entity.rotation,
-    scale: entity.scale,
-    material: entity.material,
-    color: entity.color,
-    ...(entity.groupId ? {groupId: entity.groupId, groupName: entity.groupName} : {})
+  const entities = document.entities.map(entity => {
+    const half = entity.scale.map(value => value / 2);
+    const bounds = {
+      min: entity.position.map((value,index) => value - half[index]),
+      max: entity.position.map((value,index) => value + half[index])
+    };
+    return {
+      id: entity.id,
+      type: entity.type,
+      name: entity.name,
+      position: entity.position,
+      rotation: entity.rotation,
+      scale: entity.scale,
+      bounds,
+      material: entity.material,
+      color: entity.color,
+      ...(entity.groupId ? {groupId: entity.groupId, groupName: entity.groupName} : {})
+    };
+  });
+  const groups = new Map();
+  for (const entity of entities) {
+    if (!entity.groupId) continue;
+    let group = groups.get(entity.groupId);
+    if (!group) {
+      group = {id:entity.groupId,name:entity.groupName,entity_ids:[],bounds:{min:[...entity.bounds.min],max:[...entity.bounds.max]}};
+      groups.set(entity.groupId,group);
+    }
+    group.entity_ids.push(entity.id);
+    for (let axis=0;axis<3;axis++) {
+      group.bounds.min[axis]=Math.min(group.bounds.min[axis],entity.bounds.min[axis]);
+      group.bounds.max[axis]=Math.max(group.bounds.max[axis],entity.bounds.max[axis]);
+    }
+  }
+  const groupSummaries=[...groups.values()].map(group=>({
+    ...group,
+    bounds:{...group.bounds,center:group.bounds.min.map((value,index)=>(value+group.bounds.max[index])/2)}
   }));
+  return {entities,groups:groupSummaries};
 }
 
 function safeHistory(history) {
@@ -108,7 +135,8 @@ export function buildMessages({command, document, context = {}, selectedId = nul
       anchor_ids: safeIds(context.anchorIds, document),
       last_summary: typeof context.lastSummary === "string" ? context.lastSummary.slice(0, 160) : null
     },
-    scene_entities: scene
+    scene_entities: scene.entities,
+    scene_groups: scene.groups
   };
   return [
     {role: "system", content: SYSTEM_PROMPT},
