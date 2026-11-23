@@ -288,11 +288,6 @@ export async function requestScenePlan({
     clearTimeout(timer);
   }
 
-  let data;
-  try { data = JSON.parse(rawBody); }
-  catch (cause) {
-    throw new ProviderError("模型服务返回了非 JSON 响应。", {code: "provider_invalid_response", status: 502, cause});
-  }
   if (!response.ok) {
     const upstreamStatus = response.status;
     const status = upstreamStatus === 429 ? 429 : 502;
@@ -302,6 +297,11 @@ export async function requestScenePlan({
       code === "provider_rate_limited" ? "模型服务当前限流或额度不足，请稍后重试。" :
       "模型服务请求失败（HTTP " + upstreamStatus + "）。请检查模型名称、API 地址和服务商兼容性。";
     throw new ProviderError(message, {code, status});
+  }
+  let data;
+  try { data = JSON.parse(rawBody); }
+  catch (cause) {
+    throw new ProviderError("模型服务返回了非 JSON 响应。", {code: "provider_invalid_response", status: 502, cause});
   }
 
   const parsedCall = parseToolCall(data, config.apiMode || "chat_completions");
