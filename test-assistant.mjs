@@ -46,6 +46,13 @@ assert.throws(()=>commitPlan(stale,doc),/场景已发生变化/);
 const twoSpheres=new SceneDocument();
 twoSpheres.create({type:"sphere",name:"蓝色球体"});twoSpheres.create({type:"sphere",name:"红色球体"});
 assert.throws(()=>preparePlan("把球改成白色",twoSpheres,createConversationContext()),/多个可能的目标/);
+const duplicateNames=new SceneDocument();
+const duplicateA=duplicateNames.create({type:"box",name:"重复方块"});
+const duplicateB=duplicateNames.create({type:"box",name:"重复方块"});
+assert.throws(()=>preparePlan("把重复方块改成白色",duplicateNames,createConversationContext()),/多个可能的目标/);
+const selectedDuplicate=preparePlan("把重复方块改成白色",duplicateNames,createConversationContext(),duplicateB.id);
+assert.equal(selectedDuplicate.targetIds[0],duplicateB.id);
+assert.notEqual(duplicateA.id,duplicateB.id);
 
 assert.equal(TERRAMIND_FUNCTION.name,"propose_scene_operations");
 assert.equal(TERRAMIND_FUNCTION.strict,true);
