@@ -60,7 +60,7 @@ TerraMind is a natural-language-driven 3D scene authoring tool. Users describe a
 ## V0.5 implementation slice
 - A Node.js local server exposes /api/health and /api/plan.
 - The provider adapter supports OpenAI-compatible Chat Completions and Responses formats.
-- Model input includes the structured scene, selected object, bounded conversation context and up to eight recent turns.
+- Model input includes the structured scene, selected object, bounded conversation context and up to eight recent messages (normally four user/assistant exchanges).
 - Model output is restricted to one propose_scene_operations call or a text clarification; multiple calls and unknown tool names are rejected.
 - Provider credentials remain in server environment variables.
 - The server applies request-size, scene-size, timeout, rate-limit, same-origin and static-file allowlist controls.
