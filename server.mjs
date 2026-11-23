@@ -128,3 +128,53 @@ export function createServer({
           usage:result.usage
         });
       }
+      if (req.method === "GET" && STATIC_FILES.has(requestUrl.pathname)) {
+        const [fileName,contentType]=STATIC_FILES.get(requestUrl.pathname);
+        const content=await readFile(path.join(rootDir,fileName));
+        res.writeHead(200,{
+          "Content-Type":contentType,
+          "Content-Length":content.length,
+          "Cache-Control":"no-store",
+          "X-Content-Type-Options":"nosniff",
+          "Referrer-Policy":"same-origin",
+          "Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        });
+        return res.end(content);
+      }
+      if (req.method === "OPTIONS") throw new HttpError(405,"method_not_allowed","不支持跨来源预检请求。");
+      throw new HttpError(404,"not_found","资源不存在。");
+    } catch (error) {
+      if (res.headersSent) { res.destroy(); return; }
+      const status = Number.isInteger(error.status) ? error.status : 500;
+      const code = error.code || "internal_error";
+      const message = error instanceof ProviderError || error instanceof HttpError
+        ? error.message
+        : "服务器内部错误，请查看本地服务日志。";
+      if (status >= 500) logger.error?.("TerraMind request failed:",code);
+      sendJson(res,status,{error:{code,message}});
+    }
+  });
+}
+
+function isLoopback(host) {
+  return ["127.0.0.1","localhost","::1"].includes(host);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  const host=process.env.HOST || "127.0.0.1";
+  if (!isLoopback(host)) {
+    console.error("安全限制：V0.5 开发服务器仅允许绑定 localhost/127.0.0.1/::1。公开部署需要先配置身份认证与 HTTPS 反向代理。");
+    process.exit(1);
+  }
+  const port=Number.parseInt(process.env.PORT || "8000",10);
+  if (!Number.isInteger(port) || port<1 || port>65535) {
+    console.error("PORT 必须是 1–65535 之间的整数。");
+    process.exit(1);
+  }
+  const server=createServer();
+  server.listen(port,host,()=>{
+    const config=readProviderConfig();
+    console.log(`TerraMind V0.5 listening at http://${host}:${port}`);
+    console.log(`Model provider: ${config.apiKey && config.model ? config.model : "not configured (local planner fallback only)"}`);
+  });
+}
