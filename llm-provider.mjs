@@ -148,11 +148,11 @@ export function buildMessages({command, document, context = {}, selectedId = nul
       last_summary: typeof context.lastSummary === "string" ? context.lastSummary.slice(0, 160) : null
     },
     scene_entities: scene.entities,
-    scene_groups: scene.groups
+    scene_groups: scene.groups,
+    recent_messages: safeHistory(history).map(item=>({speaker:item.role,content:item.content}))
   };
   return [
     {role: "system", content: SYSTEM_PROMPT},
-    ...safeHistory(history),
     {role: "user", content: JSON.stringify(payload)}
   ];
 }
