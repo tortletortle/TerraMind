@@ -57,7 +57,7 @@ function makePlan(document,operations,{summary,targetIds=[],anchorIds=[]}={}){
   let createdOffset=0;
   const changes=operations.map(operation=>{const offset=operation.op==="create"?createdOffset++:0;return describeChange(document,after,operation,offset);});
   const survivingTargets=targetIds.filter(id=>after.get(id));
-  const createdIds=after.entities.slice(document.entities.length).map(entity=>entity.id);
+  const createdIds=operations.filter(operation=>operation.op==="create").map((operation,index)=>"entity-"+(document.nextId+index)).filter(id=>after.get(id));
   const nextTargetIds=survivingTargets.length?survivingTargets:createdIds;
   return {
     summary,operations:clone(operations),baseSnapshot:document.snapshot(),
