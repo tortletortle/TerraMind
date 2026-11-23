@@ -1,0 +1,63 @@
+import assert from "node:assert/strict";
+import {SceneDocument} from "./scene.mjs";
+import {validateToolProposal as validateProposal} from "./assistant.mjs";
+import {buildMessages,readProviderConfig,requestScenePlan,toChatCompletionsTool,toResponsesTool,ProviderError} from "./llm-provider.mjs";
+
+const document=new SceneDocument();
+const cube=document.create({type:"box",name:"测试方块",position:[1,0.5,2]});
+const proposal={summary:"把测试方块改成蓝色",operations:[{op:"update",id:cube.id,entity:null,patch:{name:null,position:null,rotation:null,scale:null,material:null,color:"#5b91d1"}}]};
+const config={apiUrl:"https://api.example.test/v1/chat/completions",apiKey:"test-secret",model:"test-model",timeoutMs:1000};
+let captured;
+const fetchImpl=async (url,options)=>{
+  captured={url,options,body:JSON.parse(options.body)};
+  return new Response(JSON.stringify({choices:[{finish_reason:"tool_calls",message:{content:"已生成修改方案。",tool_calls:[{type:"function",function:{name:"propose_scene_operations",arguments:JSON.stringify(proposal)}}]}}],usage:{total_tokens:42}}),{status:200,headers:{"content-type":"application/json"}});
+};
+const messages=buildMessages({command:"把它改成蓝色",document,selectedId:cube.id,context:{targetIds:[cube.id,"entity-404"]},history:[{role:"user",content:"创建一个方块"},{role:"assistant",content:"已创建"}]});
+assert.equal(messages[0].role,"system");
+assert.equal(messages.at(-1).role,"user");
+const userPayload=JSON.parse(messages.at(-1).content);
+assert.deepEqual(userPayload.conversation_context.target_ids,[cube.id]);
+assert.equal(userPayload.scene_entities.length,1);
+assert.equal(userPayload.selected_entity_id,cube.id);
+const tool=toChatCompletionsTool();
+assert.equal(tool.type,"function");
+assert.equal(tool.function.name,"propose_scene_operations");
+assert.equal(tool.function.strict,true);
+assert.equal("minItems" in tool.function.parameters.properties.operations,false);
+const responseTool=toResponsesTool();
+assert.equal(responseTool.type,"function");
+assert.equal(responseTool.name,"propose_scene_operations");
+assert.equal(responseTool.strict,true);
+
+const result=await requestScenePlan({command:"把它改成蓝色",document,selectedId:cube.id,context:{targetIds:[cube.id]},history:[],config,fetchImpl,validateProposal});
+assert.equal(captured.url,config.apiUrl);
+assert.equal(captured.options.headers.Authorization,"Bearer test-secret");
+assert.equal(captured.body.model,"test-model");
+assert.equal(captured.body.parallel_tool_calls,false);
+assert.equal(captured.body.tool_choice,"auto");
+assert.equal(document.get(cube.id).color,"#aeb8b2","planning must not mutate the source scene");
+assert.equal(result.plan.operations[0].patch.color,"#5b91d1");
+assert.equal(result.reply,"已生成修改方案。");
+assert.equal(result.usage.total_tokens,42);
+
+let responsePayload;
+const responsesResult=await requestScenePlan({command:"把它改成蓝色",document,selectedId:cube.id,context:{targetIds:[cube.id]},history:[],config:{...config,apiMode:"responses"},fetchImpl:async(url,options)=>{
+  responsePayload=JSON.parse(options.body);
+  return new Response(JSON.stringify({status:"completed",output_text:"已完成规划。",output:[{type:"function_call",name:"propose_scene_operations",call_id:"call_1",arguments:JSON.stringify(proposal)}],usage:{total_tokens:24}}),{status:200});
+},validateProposal});
+assert.equal(responsePayload.input[0].role,"system");
+assert.equal(responsePayload.store,false);
+assert.equal(responsePayload.tool_choice,"auto");
+assert.equal(responsesResult.reply,"已完成规划。");
+assert.equal(responsesResult.plan.operations[0].patch.color,"#5b91d1");
+
+await assert.rejects(()=>requestScenePlan({command:"test",document,config:{...config,apiKey:"",model:""},fetchImpl,validateProposal}),error=>error instanceof ProviderError&&error.code==="provider_not_configured");
+await assert.rejects(()=>requestScenePlan({command:"test",document,config,fetchImpl:async()=>new Response(JSON.stringify({choices:[{finish_reason:"stop",message:{content:"我不确定如何操作"}}]}),{status:200}),validateProposal}),error=>error.code==="missing_tool_call");
+await assert.rejects(()=>requestScenePlan({command:"test",document,config,fetchImpl:async()=>new Response(JSON.stringify({error:{message:"secret upstream detail"}}),{status:401}),validateProposal}),error=>error.code==="provider_auth_error"&&!error.message.includes("secret upstream detail"));
+await assert.rejects(()=>requestScenePlan({command:"test",document,config,fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{tool_calls:[{type:"function",function:{name:"wrong_tool",arguments:"{}"}}]}}]}),{status:200}),validateProposal}),error=>error.code==="invalid_tool_call");
+await assert.rejects(()=>requestScenePlan({command:"test",document,config,fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{tool_calls:[{type:"function",function:{name:"propose_scene_operations",arguments:JSON.stringify({summary:"x",operations:[{op:"delete",id:"entity-404",entity:null,patch:null}]})}}]}}]}),{status:200}),validateProposal}),error=>error.code==="proposal_validation_failed");
+assert.throws(()=>readProviderConfig({TERRAMIND_API_URL:"http://example.com/v1/chat/completions"}),/HTTPS/);
+assert.equal(readProviderConfig({TERRAMIND_API_MODE:"responses"}).apiUrl,"https://api.openai.com/v1/responses");
+assert.throws(()=>readProviderConfig({TERRAMIND_API_MODE:"unknown"}),/仅支持/);
+assert.throws(()=>buildMessages({command:"",document}),/不能为空/);
+console.log("PASS: provider request shape, prompt context, strict tool mapping, proposal validation, auth/error redaction and config safety");
