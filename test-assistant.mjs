@@ -8,6 +8,7 @@ let plan=preparePlan("创建一座红色城堡",doc,context);
 assert.equal(doc.entities.length,0,"planning must not mutate the scene");
 assert.equal(plan.preview.changeCount,10);
 doc=commitPlan(plan,doc);context=plan.contextAfter;
+const castleIds=context.targetIds;
 assert.equal(doc.entities.length,10);
 
 plan=preparePlan("在城堡旁边建一座桥",doc,context);
@@ -18,6 +19,8 @@ assert.equal(doc.entities.length,15);
 assert.equal(context.targetIds.length,5);
 assert.equal(context.anchorIds.length,10);
 const bridgeIds=context.targetIds;
+const secondBridgePlan=preparePlan("在城堡旁边建一座桥",doc,context);
+assert.deepEqual(secondBridgePlan.anchorIds,castleIds,"a second bridge must still resolve the castle, not the existing bridge alias");
 const bridgeY=doc.get(bridgeIds[0]).position[1];
 plan=preparePlan("再高一点",doc,context);
 doc=commitPlan(plan,doc);context=plan.contextAfter;
